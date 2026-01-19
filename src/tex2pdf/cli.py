@@ -19,6 +19,15 @@ app = typer.Typer(
 )
 
 
+def _resolve_input_path(input_file: Path) -> tuple[Path, bool]:
+    """Resolve the input .tex path, preferring the input folder for bare names."""
+    if input_file.is_absolute() or input_file.parent != Path("."):
+        return input_file.resolve(), False
+
+    input_dir = Path("input")
+    return (input_dir / input_file).resolve(), True
+
+
 def _print_diagnostics(result: CompileResult) -> None:
     """Print diagnostics in human-readable format."""
     if not result.diagnostics:
@@ -41,7 +50,9 @@ def _print_diagnostics(result: CompileResult) -> None:
 def main(
     input_file: Annotated[
         Path,
-        typer.Argument(help="Path to the input .tex file"),
+        typer.Argument(
+            help="Path to the input .tex file (bare names are resolved under ./input)",
+        ),
     ],
     outdir: Annotated[
         Path,
@@ -68,9 +79,12 @@ def main(
         tex2pdf document.tex --json
     """
     # Resolve input file path
-    tex_path = input_file.resolve()
+    tex_path, used_input_dir = _resolve_input_path(input_file)
     if not tex_path.exists():
-        error_msg = f"Error: Input file not found: {tex_path}"
+        if used_input_dir:
+            error_msg = f"Error: Input file not found in input folder: {tex_path}"
+        else:
+            error_msg = f"Error: Input file not found: {tex_path}"
         if json_output:
             result = CompileResult(
                 success=False,

@@ -80,6 +80,8 @@ python -m pip install -r requirements.txt
 tex2pdf INPUT_FILE.tex [OPTIONS]
 ```
 
+Bare filenames are resolved under the `input/` folder by default.
+
 #### Options
 
 - `--outdir`, `-o PATH`: Output directory for generated files (default: `./output`)
@@ -93,17 +95,27 @@ tex2pdf INPUT_FILE.tex [OPTIONS]
 ##### Basic compilation
 
 ```bash
-# Compile a LaTeX file using the default engine
+# Compile a LaTeX file using the default engine (from input/)
 tex2pdf document.tex
 
 # Compile the example document in the input folder
-tex2pdf input/latex_lit_review.tex
+tex2pdf latex_literature_review.tex
 
 # Specify output directory
 tex2pdf document.tex --outdir=./output
 
 # Use a specific engine
 tex2pdf document.tex --engine=latexmk
+```
+
+##### Tutorial: example document
+
+```bash
+# 1) Compile the example LaTeX document from input/
+tex2pdf latex_literature_review.tex
+
+# 2) Open the result at:
+# output/latex_literature_review.pdf
 ```
 
 ##### JSON output
@@ -217,7 +229,7 @@ tex2pdf/
 ├── requirements.txt        # Runtime dependencies
 ├── requirements-dev.txt    # Development dependencies
 ├── input/
-│   └── latex_lit_review.tex # Example input document
+│   └── latex_literature_review.tex # Example input document
 ├── output/                 # Default output directory
 ├── src/
 │   └── tex2pdf/
