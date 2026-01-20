@@ -47,8 +47,8 @@ python3 -m venv .venv
 source .venv/bin/activate  # macOS/Linux
 # .venv\Scripts\activate   # Windows
 
-python -m pip install --upgrade pip
-python -m pip install .
+python3 -m pip install --upgrade pip
+python3 -m pip install .
 ```
 
 ### For development
