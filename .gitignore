@@ -144,3 +144,5 @@ Thumbs.db
 # Project-specific
 output/
 *.pdf
+input/*
+!input/latex_literature_review.tex
