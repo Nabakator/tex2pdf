@@ -22,6 +22,16 @@ _BIBER_VERSION_MISMATCH_PATTERN = re.compile(
     r"This means that your biber \([^)]+\) and biblatex \([^)]+\) versions are incompatible\.",
     re.MULTILINE,
 )
+_AUXILIARY_SUFFIXES = (
+    ".aux",
+    ".bbl",
+    ".bcf",
+    ".blg",
+    ".fdb_latexmk",
+    ".fls",
+    ".log",
+    ".run.xml",
+)
 
 
 def _find_engine_executable(engine_name: str) -> Optional[str]:
@@ -49,6 +59,16 @@ def _document_uses_biblatex(tex_path: Path) -> bool:
 def _has_biber_version_mismatch(log: str) -> bool:
     """Detect a biber/biblatex version mismatch in compilation output."""
     return bool(_BIBER_VERSION_MISMATCH_PATTERN.search(log))
+
+
+def _cleanup_auxiliary_files(tex_path: Path, outdir: Path) -> None:
+    """Remove known LaTeX auxiliary files for a document from the output directory."""
+    for suffix in _AUXILIARY_SUFFIXES:
+        aux_path = outdir / f"{tex_path.stem}{suffix}"
+        try:
+            aux_path.unlink()
+        except FileNotFoundError:
+            continue
 
 
 def _get_default_engine(tex_path: Optional[Path] = None) -> str:
@@ -179,6 +199,7 @@ def compile_tex(
     outdir: Path,
     engine: EngineConfig,
     timeout: Optional[int] = None,
+    keep_aux: bool = False,
 ) -> CompileResult:
     """Compile a LaTeX file to PDF using the specified engine.
 
@@ -187,6 +208,7 @@ def compile_tex(
         outdir: Directory for output files (will be created if missing)
         engine: Engine configuration
         timeout: Maximum execution time in seconds (None for no timeout)
+        keep_aux: Keep auxiliary files in the output directory after success
 
     Returns:
         CompileResult containing success status, PDF path, log, and diagnostics
@@ -328,6 +350,9 @@ def compile_tex(
 
     # Determine success: return code 0 and PDF exists
     success = return_code == 0 and pdf_path.exists()
+
+    if success and not keep_aux:
+        _cleanup_auxiliary_files(tex_path, outdir)
 
     # If compilation failed but we have no error diagnostics, add a generic one.
     if not success and not any(diag.level == "error" for diag in result_diagnostics):

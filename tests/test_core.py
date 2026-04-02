@@ -10,6 +10,17 @@ import pytest
 from tex2pdf.core import _get_default_engine, compile_tex
 from tex2pdf.models import CompileResult, EngineConfig
 
+_AUX_SUFFIXES = (
+    ".aux",
+    ".bbl",
+    ".bcf",
+    ".blg",
+    ".fdb_latexmk",
+    ".fls",
+    ".log",
+    ".run.xml",
+)
+
 
 @pytest.fixture
 def mock_tex_file(tmp_path: Path) -> Path:
@@ -191,6 +202,106 @@ def test_compile_tex_unsupported_engine(
     # For now, test that invalid engine name in config would fail
     # (In practice, the CLI validates this, but core should handle gracefully)
     pass  # EngineConfig only allows "tectonic" or "latexmk" via type hints
+
+
+@patch("tex2pdf.core.shutil.which")
+@patch("tex2pdf.core.subprocess.run")
+def test_compile_tex_success_removes_auxiliary_files(
+    mock_subprocess: Mock,
+    mock_which: Mock,
+    mock_tex_file: Path,
+    outdir: Path,
+) -> None:
+    """Successful runs should clean up auxiliary files by default."""
+    mock_which.return_value = "/usr/bin/latexmk"
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "Latexmk: All targets successfully generated"
+    mock_result.stderr = ""
+    mock_subprocess.return_value = mock_result
+
+    outdir.mkdir(parents=True, exist_ok=True)
+    pdf_path = outdir / "test.pdf"
+    pdf_path.write_text("fake pdf content")
+    for suffix in _AUX_SUFFIXES:
+        (outdir / f"test{suffix}").write_text("aux")
+
+    result = compile_tex(
+        tex_path=mock_tex_file,
+        outdir=outdir,
+        engine=EngineConfig(name="latexmk"),
+    )
+
+    assert result.success
+    assert pdf_path.exists()
+    for suffix in _AUX_SUFFIXES:
+        assert not (outdir / f"test{suffix}").exists()
+
+
+@patch("tex2pdf.core.shutil.which")
+@patch("tex2pdf.core.subprocess.run")
+def test_compile_tex_keep_aux_preserves_auxiliary_files(
+    mock_subprocess: Mock,
+    mock_which: Mock,
+    mock_tex_file: Path,
+    outdir: Path,
+) -> None:
+    """keep_aux should preserve generated auxiliary files."""
+    mock_which.return_value = "/usr/bin/latexmk"
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "Latexmk: All targets successfully generated"
+    mock_result.stderr = ""
+    mock_subprocess.return_value = mock_result
+
+    outdir.mkdir(parents=True, exist_ok=True)
+    pdf_path = outdir / "test.pdf"
+    pdf_path.write_text("fake pdf content")
+    for suffix in _AUX_SUFFIXES:
+        (outdir / f"test{suffix}").write_text("aux")
+
+    result = compile_tex(
+        tex_path=mock_tex_file,
+        outdir=outdir,
+        engine=EngineConfig(name="latexmk"),
+        keep_aux=True,
+    )
+
+    assert result.success
+    for suffix in _AUX_SUFFIXES:
+        assert (outdir / f"test{suffix}").exists()
+
+
+@patch("tex2pdf.core.shutil.which")
+@patch("tex2pdf.core.subprocess.run")
+def test_compile_tex_failure_preserves_auxiliary_files(
+    mock_subprocess: Mock,
+    mock_which: Mock,
+    mock_tex_file: Path,
+    outdir: Path,
+) -> None:
+    """Failed runs should keep auxiliary files for debugging."""
+    mock_which.return_value = "/usr/bin/latexmk"
+    mock_result = MagicMock()
+    mock_result.returncode = 1
+    mock_result.stdout = ""
+    mock_result.stderr = "! Undefined control sequence.\nl.5 \\foo"
+    mock_subprocess.return_value = mock_result
+
+    outdir.mkdir(parents=True, exist_ok=True)
+    pdf_path = outdir / "test.pdf"
+    pdf_path.write_text("fake pdf content")
+    aux_path = outdir / "test.log"
+    aux_path.write_text("aux")
+
+    result = compile_tex(
+        tex_path=mock_tex_file,
+        outdir=outdir,
+        engine=EngineConfig(name="latexmk"),
+    )
+
+    assert not result.success
+    assert aux_path.exists()
 
 
 @patch("tex2pdf.core.shutil.which")

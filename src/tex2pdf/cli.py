@@ -66,6 +66,10 @@ def main(
         bool,
         typer.Option("--json", help="Output result as JSON"),
     ] = False,
+    keep_aux: Annotated[
+        bool,
+        typer.Option("--keep-aux", help="Keep auxiliary files after a successful compile"),
+    ] = False,
     timeout: Annotated[
         int,
         typer.Option("--timeout", "-t", help="Maximum compilation time in seconds"),
@@ -135,6 +139,7 @@ def main(
         outdir=outdir.resolve(),
         engine=engine_config,
         timeout=timeout,
+        keep_aux=keep_aux,
     )
 
     # Handle JSON output

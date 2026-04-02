@@ -10,6 +10,7 @@ A minimalist Python CLI tool for compiling LaTeX files to PDF with structured er
 - **Fix recommendations**: Provides actionable suggestions for common LaTeX errors
 - **JSON output**: Machine-readable output for programmatic consumption
 - **Timeout protection**: Prevents compilation from hanging indefinitely
+- **Aux cleanup by default**: Removes common `.aux`/`.log`/`latexmk` byproducts after successful builds
 - **Clean API**: Simple programmatic interface for integration into other tools
 
 ## Requirements
@@ -88,6 +89,7 @@ Bare filenames are resolved under the `input/` folder by default.
 - `--outdir`, `-o PATH`: Output directory for generated files (default: `./output`)
 - `--engine`, `-e {tectonic,latexmk}`: LaTeX engine to use (default: auto-detect, with `latexmk` preferred for `biblatex` sources)
 - `--json`: Output result as JSON for machine consumption
+- `--keep-aux`: Keep auxiliary files after a successful compile
 - `--timeout`, `-t SECONDS`: Maximum compilation time in seconds (default: 120)
 - `--help`: Show help message
 
@@ -107,6 +109,9 @@ tex2pdf document.tex --outdir=./output
 
 # Use a specific engine
 tex2pdf document.tex --engine=latexmk
+
+# Keep auxiliary files for debugging
+tex2pdf document.tex --keep-aux
 ```
 
 ##### Tutorial: example document
@@ -155,7 +160,8 @@ result = compile_tex(
     tex_path=Path("document.tex"),
     outdir=Path("./output"),
     engine=EngineConfig(name="tectonic"),
-    timeout=120
+    timeout=120,
+    keep_aux=False,
 )
 
 if result.success:
@@ -165,6 +171,8 @@ else:
     for diagnostic in result.diagnostics:
         print(f"{diagnostic.level}: {diagnostic.message}")
 ```
+
+On successful builds, `tex2pdf` removes common auxiliary files such as `.aux`, `.bbl`, `.bcf`, `.blg`, `.fdb_latexmk`, `.fls`, `.log`, and `.run.xml`. Failed builds keep them for debugging. Use `--keep-aux` or `keep_aux=True` to preserve them.
 
 ## Error handling and diagnostics
 
