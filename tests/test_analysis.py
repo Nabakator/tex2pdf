@@ -71,6 +71,19 @@ l.10 \textbf{bad}
     assert error_diags[0].level == "error"
 
 
+def test_biber_biblatex_version_mismatch() -> None:
+    """Test detection of incompatible biber/biblatex versions."""
+    log = """
+ERROR - Error: Found biblatex control file version 3.8, expected version 3.5.
+This means that your biber (2.12) and biblatex (3.17) versions are incompatible.
+"""
+    diagnostics = analyse_log(log)
+    mismatch_diags = [d for d in diagnostics if d.code == "biber-biblatex-version-mismatch"]
+    assert len(mismatch_diags) == 1
+    assert "incompatible" in mismatch_diags[0].message.lower()
+    assert "biber 2.12" in mismatch_diags[0].message
+
+
 def test_multiple_errors() -> None:
     """Test that multiple errors are detected."""
     log = r"""

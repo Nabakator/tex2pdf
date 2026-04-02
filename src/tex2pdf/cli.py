@@ -104,7 +104,7 @@ def main(
 
     # Determine engine
     if engine is None:
-        engine_name = _get_default_engine()
+        engine_name = _get_default_engine(tex_path)
     else:
         engine_name = engine.lower()
 

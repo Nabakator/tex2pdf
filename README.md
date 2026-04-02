@@ -5,6 +5,7 @@ A minimalist Python CLI tool for compiling LaTeX files to PDF with structured er
 ## Features
 
 - **Multiple engine support**: Works with Tectonic and LaTeXmk
+- **Smarter engine auto-selection**: Prefers `latexmk` for `biblatex`/`biber` documents to avoid common version mismatches
 - **Structured error reporting**: Extracts meaningful diagnostics from LaTeX compilation logs
 - **Fix recommendations**: Provides actionable suggestions for common LaTeX errors
 - **JSON output**: Machine-readable output for programmatic consumption
@@ -85,7 +86,7 @@ Bare filenames are resolved under the `input/` folder by default.
 #### Options
 
 - `--outdir`, `-o PATH`: Output directory for generated files (default: `./output`)
-- `--engine`, `-e {tectonic,latexmk}`: LaTeX engine to use (default: auto-detect)
+- `--engine`, `-e {tectonic,latexmk}`: LaTeX engine to use (default: auto-detect, with `latexmk` preferred for `biblatex` sources)
 - `--json`: Output result as JSON for machine consumption
 - `--timeout`, `-t SECONDS`: Maximum compilation time in seconds (default: 120)
 - `--help`: Show help message

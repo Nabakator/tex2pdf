@@ -45,6 +45,17 @@ class LogAnalyzer:
             self._handle_runaway_argument,
         )
 
+        # biber/biblatex version mismatch
+        self.add_rule(
+            re.compile(
+                r"Found biblatex control file version ([0-9.]+), expected version ([0-9.]+)\.\s*"
+                r"This means that your biber \(([^)]+)\) and biblatex \(([^)]+)\) "
+                r"versions are incompatible\.",
+                re.MULTILINE,
+            ),
+            self._handle_biber_version_mismatch,
+        )
+
         # Generic LaTeX error lines (starting with !)
         self.add_rule(
             re.compile(r"^!(.*)$", re.MULTILINE),
@@ -107,6 +118,27 @@ class LogAnalyzer:
                 message=(
                     "Runaway argument. Likely an unclosed brace or environment; "
                     "check for missing '}' or \\end{...} above."
+                ),
+                raw=raw.strip(),
+            )
+        ]
+
+    def _handle_biber_version_mismatch(self, match: re.Match[str]) -> list[Diagnostic]:
+        """Handle biber/biblatex version mismatches."""
+        raw = match.group(0)
+        control_version = match.group(1)
+        expected_version = match.group(2)
+        biber_version = match.group(3)
+        biblatex_version = match.group(4)
+        return [
+            Diagnostic(
+                level="error",
+                code="biber-biblatex-version-mismatch",
+                message=(
+                    "Installed biber and biblatex are incompatible "
+                    f"(biber {biber_version}, biblatex {biblatex_version}; "
+                    f"control file {control_version} expected {expected_version}). "
+                    "Use latexmk or install matching TeX tooling versions."
                 ),
                 raw=raw.strip(),
             )

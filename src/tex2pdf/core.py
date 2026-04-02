@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -9,6 +10,18 @@ from typing import Optional
 
 from tex2pdf.analysis import analyse_log
 from tex2pdf.models import CompileResult, Diagnostic, EngineConfig
+
+_BIBLATEX_PATTERN = re.compile(
+    r"\\usepackage(?:\[[^\]]*\])?\{biblatex\}|"
+    r"\\addbibresource\{[^}]+\}|"
+    r"\\printbibliography\b",
+    re.MULTILINE,
+)
+_BIBER_VERSION_MISMATCH_PATTERN = re.compile(
+    r"Found biblatex control file version [0-9.]+, expected version [0-9.]+\.\s*"
+    r"This means that your biber \([^)]+\) and biblatex \([^)]+\) versions are incompatible\.",
+    re.MULTILINE,
+)
 
 
 def _find_engine_executable(engine_name: str) -> Optional[str]:
@@ -23,15 +36,37 @@ def _find_engine_executable(engine_name: str) -> Optional[str]:
     return shutil.which(engine_name)
 
 
-def _get_default_engine() -> str:
+def _document_uses_biblatex(tex_path: Path) -> bool:
+    """Return True when the TeX source appears to use biblatex/biber."""
+    try:
+        source = tex_path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+
+    return bool(_BIBLATEX_PATTERN.search(source))
+
+
+def _has_biber_version_mismatch(log: str) -> bool:
+    """Detect a biber/biblatex version mismatch in compilation output."""
+    return bool(_BIBER_VERSION_MISMATCH_PATTERN.search(log))
+
+
+def _get_default_engine(tex_path: Optional[Path] = None) -> str:
     """Determine the default LaTeX engine to use.
 
     Returns:
-        Engine name ('tectonic' or 'latexmk'), preferring tectonic
+        Engine name ('tectonic' or 'latexmk'), preferring the most compatible choice
     """
-    if _find_engine_executable("tectonic"):
+    tectonic_exe = _find_engine_executable("tectonic")
+    latexmk_exe = _find_engine_executable("latexmk")
+
+    # Prefer latexmk for biblatex documents because tectonic may delegate to a
+    # system biber whose version is out of sync with tectonic's bundled biblatex.
+    if tex_path and latexmk_exe and _document_uses_biblatex(tex_path):
+        return "latexmk"
+    if tectonic_exe:
         return "tectonic"
-    if _find_engine_executable("latexmk"):
+    if latexmk_exe:
         return "latexmk"
     return "tectonic"  # Default fallback, will fail later if not found
 
@@ -186,11 +221,49 @@ def compile_tex(
         )
 
     # Run the appropriate engine
+    result_diagnostics: list[Diagnostic] = []
+    used_engine_name = engine.name
+    analysis_log = ""
     try:
         if engine.name == "tectonic":
             return_code, log, pdf_path = _run_tectonic(tex_path, outdir, timeout)
+            analysis_log = log
+
+            if return_code != 0 and _has_biber_version_mismatch(log):
+                try:
+                    retry_return_code, retry_log, retry_pdf_path = _run_latexmk(
+                        tex_path,
+                        outdir,
+                        timeout,
+                    )
+                except FileNotFoundError:
+                    pass
+                else:
+                    used_engine_name = "latexmk"
+                    result_diagnostics.append(
+                        Diagnostic(
+                            level="info",
+                            code="engine-fallback",
+                            message=(
+                                "Tectonic hit a biblatex/biber version mismatch; "
+                                "retried with latexmk."
+                            ),
+                            raw="tectonic -> latexmk",
+                        )
+                    )
+                    log = (
+                        "note: tectonic failed with a biblatex/biber version mismatch; "
+                        "retrying with latexmk.\n\n"
+                        f"{log}\n\n"
+                        "note: latexmk retry log follows.\n\n"
+                        f"{retry_log}"
+                    )
+                    analysis_log = retry_log if retry_return_code == 0 else log
+                    return_code = retry_return_code
+                    pdf_path = retry_pdf_path
         elif engine.name == "latexmk":
             return_code, log, pdf_path = _run_latexmk(tex_path, outdir, timeout)
+            analysis_log = log
         else:
             return CompileResult(
                 success=False,
@@ -207,13 +280,13 @@ def compile_tex(
     except FileNotFoundError as e:
         return CompileResult(
             success=False,
-            engine=engine.name,
+            engine=used_engine_name,
             log=str(e),
             diagnostics=[
                 Diagnostic(
                     level="error",
                     code="engine-not-found",
-                    message=f"LaTeX engine '{engine.name}' not found on PATH",
+                    message=f"LaTeX engine '{used_engine_name}' not found on PATH",
                     raw=str(e),
                 )
             ],
@@ -221,7 +294,7 @@ def compile_tex(
     except Exception as e:
         return CompileResult(
             success=False,
-            engine=engine.name,
+            engine=used_engine_name,
             log=str(e),
             diagnostics=[
                 Diagnostic(
@@ -237,7 +310,7 @@ def compile_tex(
     if "timed out" in log.lower():
         return CompileResult(
             success=False,
-            engine=engine.name,
+            engine=used_engine_name,
             return_code=return_code,
             log=log,
             diagnostics=[
@@ -251,14 +324,14 @@ def compile_tex(
         )
 
     # Analyze log for diagnostics
-    diagnostics = analyse_log(log)
+    result_diagnostics.extend(analyse_log(analysis_log or log))
 
     # Determine success: return code 0 and PDF exists
     success = return_code == 0 and pdf_path.exists()
 
-    # If compilation failed but we have no diagnostics, add a generic one
-    if not success and not diagnostics:
-        diagnostics.append(
+    # If compilation failed but we have no error diagnostics, add a generic one.
+    if not success and not any(diag.level == "error" for diag in result_diagnostics):
+        result_diagnostics.append(
             Diagnostic(
                 level="error",
                 code="compilation-failed",
@@ -271,8 +344,8 @@ def compile_tex(
         success=success,
         pdf_path=pdf_path if pdf_path.exists() else None,
         log=log,
-        diagnostics=diagnostics,
-        engine=engine.name,
+        diagnostics=result_diagnostics,
+        engine=used_engine_name,
         return_code=return_code,
         workdir=tex_path.parent,
     )
