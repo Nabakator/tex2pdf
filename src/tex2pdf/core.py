@@ -30,6 +30,7 @@ _AUXILIARY_SUFFIXES = (
     ".fdb_latexmk",
     ".fls",
     ".log",
+    ".out",
     ".run.xml",
 )
 
