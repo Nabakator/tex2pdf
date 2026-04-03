@@ -1,4 +1,12 @@
 \documentclass{article}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage[backend=biber,style=ieee]{biblatex}
+\addbibresource{latex_literature_review_references.bib}
+
+\renewcommand{\figureautorefname}{Figure}
+\renewcommand{\sectionautorefname}{Section}
+
 \title{A Brief Literature Review on LaTeX}
 \author{Example Author}
 \date{\today}
@@ -6,32 +14,51 @@
 \begin{document}
 \maketitle
 
-\section{Introduction}
+\section{Introduction}\label{sec:introduction}
 LaTeX has long been a foundational tool for scientific and technical writing,
 valued for its precision in mathematical typesetting and its separation of
-content from presentation. This short review highlights the recurring themes
-in discussions of LaTeX usage across academic and technical communities.
+content from presentation. This sample now doubles as a feature showcase for
+\texttt{tex2pdf}: the citation to the general LaTeX overview \cite{latexwiki}
+should jump to the bibliography entry, while the reference to
+\autoref{fig:latex-logo} should jump to the figure itself in the generated PDF.
 
-\section{Core Themes in the Literature}
+\section{Core Themes in the Literature}\label{sec:themes}
 Two consistent themes appear in the literature: quality and control. Authors
 emphasize that LaTeX produces stable, high-quality typography and gives writers
 fine-grained control over structure and notation. A second theme is portability,
 where source files are plain text and easy to version, compare, and reuse.
+That portability is one reason cross-references such as the forward reference to
+\autoref{sec:adoption} remain reliable even as a document evolves.
 
-\section{Adoption in Academic Workflows}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.62\linewidth]{images/LaTeX_project_logo_bird.png}
+  \caption{The LaTeX project logo, included to demonstrate image support and
+  clickable figure references in the sample document.}
+  \label{fig:latex-logo}
+\end{figure}
+
+\section{Adoption in Academic Workflows}\label{sec:adoption}
 Studies of writing practices note that LaTeX is frequently adopted in fields
 with heavy mathematical content, such as physics, computer science, and
 engineering. Its extensibility through packages also supports specialized
-formats for journals and conferences, easing submission workflows.
+formats for journals and conferences, easing submission workflows. The logo in
+\autoref{fig:latex-logo} is included here to show that the template can compile
+images alongside ordinary text, labels, and citations.
 
-\section{Challenges and Learning Curve}
+\section{Challenges and Learning Curve}\label{sec:challenges}
 While the benefits are substantial, reports also note the learning curve for
 new users. Authors recommend gradual onboarding, templates, and clear
-documentation to reduce initial friction.
+documentation to reduce initial friction. In practical terms, this sample also
+shows that hyperlink-aware references can make navigation easier in longer PDFs.
 
-\section{Conclusion}
+\section{Conclusion}\label{sec:conclusion}
 Overall, the literature presents LaTeX as a durable, standards-based platform
 for technical communication, with trade-offs that can be mitigated through
-instruction and tooling.
+instruction and tooling. As a template, this file now demonstrates images,
+cross-references such as \autoref{sec:adoption}, and IEEE-style citations such
+as \cite{latexwiki}.
+
+\printbibliography
 
 \end{document}

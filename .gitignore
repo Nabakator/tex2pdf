@@ -146,3 +146,7 @@ output/
 *.pdf
 input/*
 !input/latex_literature_review.tex
+!input/latex_literature_review_references.bib
+!input/images/
+!input/images/LaTeX_project_logo_bird.svg
+!input/images/LaTeX_project_logo_bird.png
