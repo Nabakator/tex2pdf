@@ -142,7 +142,12 @@ ehthumbs.db
 Thumbs.db
 
 # Project-specific
-output/
+output/*
 *.pdf
+# Keep the generated sample PDF in version control as a demo artifact.
+!output/latex_literature_review.pdf
 input/*
 !input/latex_literature_review.tex
+!input/latex_literature_review_references.bib
+!input/images/
+!input/images/LaTeX_project_logo_bird.png

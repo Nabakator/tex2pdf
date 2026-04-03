@@ -5,10 +5,13 @@ A minimalist Python CLI tool for compiling LaTeX files to PDF with structured er
 ## Features
 
 - **Multiple engine support**: Works with Tectonic and LaTeXmk
+- **Smarter engine auto-selection**: Prefers `latexmk` for `biblatex`/`biber` documents to avoid common version mismatches
+- **Standard LaTeX content support**: Compiles documents with images, figures, labels, cross-references, and bibliographies/citations
 - **Structured error reporting**: Extracts meaningful diagnostics from LaTeX compilation logs
 - **Fix recommendations**: Provides actionable suggestions for common LaTeX errors
 - **JSON output**: Machine-readable output for programmatic consumption
 - **Timeout protection**: Prevents compilation from hanging indefinitely
+- **Aux cleanup by default**: Removes common `.aux`/`.log`/`latexmk` byproducts after successful builds
 - **Clean API**: Simple programmatic interface for integration into other tools
 
 ## Requirements
@@ -85,8 +88,9 @@ Bare filenames are resolved under the `input/` folder by default.
 #### Options
 
 - `--outdir`, `-o PATH`: Output directory for generated files (default: `./output`)
-- `--engine`, `-e {tectonic,latexmk}`: LaTeX engine to use (default: auto-detect)
+- `--engine`, `-e {tectonic,latexmk}`: LaTeX engine to use (default: auto-detect, with `latexmk` preferred for `biblatex` sources)
 - `--json`: Output result as JSON for machine consumption
+- `--keep-aux`: Keep auxiliary files after a successful compile
 - `--timeout`, `-t SECONDS`: Maximum compilation time in seconds (default: 120)
 - `--help`: Show help message
 
@@ -106,6 +110,9 @@ tex2pdf document.tex --outdir=./output
 
 # Use a specific engine
 tex2pdf document.tex --engine=latexmk
+
+# Keep auxiliary files for debugging
+tex2pdf document.tex --keep-aux
 ```
 
 ##### Tutorial: example document
@@ -118,6 +125,8 @@ tex2pdf latex_literature_review.tex
 # output/latex_literature_review.pdf
 ```
 
+The repository intentionally tracks `output/latex_literature_review.pdf` as a demo artifact so the sample output is visible on GitHub without requiring a local compile first.
+
 ##### JSON output
 
 ```bash
@@ -128,7 +137,7 @@ tex2pdf document.tex --json
 The JSON output includes:
 
 - `success`: Boolean indicating compilation success
-- `pdf_path`: Path to generated PDF (if successful)
+- `pdf_path`: Path to the generated PDF on success, otherwise `null`
 - `log`: Full compilation log
 - `diagnostics`: Array of diagnostic objects with error codes, messages, and fix recommendations
 - `engine`: Engine used for compilation
@@ -140,6 +149,22 @@ The JSON output includes:
 # Set a 60-second timeout
 tex2pdf document.tex --timeout=60
 ```
+
+### Supported document features
+
+`tex2pdf` compiles standard LaTeX documents and does not strip document features provided by the underlying TeX engine. In practice, that means the current tool supports:
+
+- Images and figures, for example via `\includegraphics{...}`
+- Labels and cross-references such as `\label`, `\ref`, and figure/section references
+- Bibliographies and citations, including `biblatex`/`biber` workflows
+
+If you want clickable links inside the generated PDF, add `hyperref` in your LaTeX preamble:
+
+```tex
+\usepackage[hidelinks]{hyperref}
+```
+
+With that in place, references such as `Figure~\ref{fig:example}` and citations such as `\cite{example2024}` become clickable in the output PDF.
 
 ### Programmatic API
 
@@ -154,7 +179,8 @@ result = compile_tex(
     tex_path=Path("document.tex"),
     outdir=Path("./output"),
     engine=EngineConfig(name="tectonic"),
-    timeout=120
+    timeout=120,
+    keep_aux=False,
 )
 
 if result.success:
@@ -164,6 +190,8 @@ else:
     for diagnostic in result.diagnostics:
         print(f"{diagnostic.level}: {diagnostic.message}")
 ```
+
+On successful builds, `tex2pdf` removes common auxiliary files such as `.aux`, `.bbl`, `.bcf`, `.blg`, `.fdb_latexmk`, `.fls`, `.log`, `.out`, and `.run.xml`. Failed builds keep them for debugging. Use `--keep-aux` or `keep_aux=True` to preserve them.
 
 ## Error handling and diagnostics
 
@@ -229,8 +257,10 @@ tex2pdf/
 ├── requirements.txt        # Runtime dependencies
 ├── requirements-dev.txt    # Development dependencies
 ├── input/
-│   └── latex_literature_review.tex # Example input document
-├── output/                 # Default output directory
+│   ├── latex_literature_review.tex            # Example input document
+│   ├── latex_literature_review_references.bib # Example bibliography
+│   └── images/LaTeX_project_logo_bird.png     # Example figure asset
+├── output/                 # Default output directory and tracked demo PDF
 ├── src/
 │   └── tex2pdf/
 │       ├── __init__.py         # Package exports
@@ -240,7 +270,8 @@ tex2pdf/
 │       └── cli.py              # Typer-based CLI interface
 └── tests/
     ├── test_analysis.py    # Tests for log analysis
-    └── test_core.py        # Tests for core compilation (with mocking)
+    ├── test_cli_integration.py # Real CLI integration tests
+    └── test_core.py        # Tests for core compilation logic
 ```
 
 ## Development
@@ -257,6 +288,31 @@ pytest --cov=tex2pdf
 # Run with verbose output
 pytest -v
 ```
+
+The CLI integration tests use the real LaTeX toolchain and are skipped automatically when required system tools such as `latexmk`, `pdflatex`, or `biber` are unavailable.
+
+### Packaging smoke test
+
+```bash
+pyproject-build --no-isolation
+
+python -m venv .tmp-release-venv
+source .tmp-release-venv/bin/activate
+python -m pip install dist/tex2pdf-1.0.0-py3-none-any.whl
+tex2pdf latex_literature_review.tex --json
+deactivate
+```
+
+### Release checklist
+
+Use this checklist before tagging a release:
+
+1. Ensure the worktree is clean aside from the intended version bump and demo PDF update.
+2. Run `pytest` and confirm the CLI integration tests are either passing or explicitly skipped for missing system tools.
+3. Rebuild the sample review with `tex2pdf latex_literature_review.tex --json` and confirm `output/latex_literature_review.pdf` is current.
+4. Run the packaging smoke test in a clean virtual environment.
+5. Confirm `pyproject.toml` version/classifiers match the intended release.
+6. Review the README examples and JSON contract, then tag the release.
 
 ### Extending the diagnostic system
 
