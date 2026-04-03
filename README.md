@@ -6,6 +6,7 @@ A minimalist Python CLI tool for compiling LaTeX files to PDF with structured er
 
 - **Multiple engine support**: Works with Tectonic and LaTeXmk
 - **Smarter engine auto-selection**: Prefers `latexmk` for `biblatex`/`biber` documents to avoid common version mismatches
+- **Standard LaTeX content support**: Compiles documents with images, figures, labels, cross-references, and bibliographies/citations
 - **Structured error reporting**: Extracts meaningful diagnostics from LaTeX compilation logs
 - **Fix recommendations**: Provides actionable suggestions for common LaTeX errors
 - **JSON output**: Machine-readable output for programmatic consumption
@@ -146,6 +147,22 @@ The JSON output includes:
 # Set a 60-second timeout
 tex2pdf document.tex --timeout=60
 ```
+
+### Supported document features
+
+`tex2pdf` compiles standard LaTeX documents and does not strip document features provided by the underlying TeX engine. In practice, that means the current tool supports:
+
+- Images and figures, for example via `\includegraphics{...}`
+- Labels and cross-references such as `\label`, `\ref`, and figure/section references
+- Bibliographies and citations, including `biblatex`/`biber` workflows
+
+If you want clickable links inside the generated PDF, add `hyperref` in your LaTeX preamble:
+
+```tex
+\usepackage[hidelinks]{hyperref}
+```
+
+With that in place, references such as `Figure~\ref{fig:example}` and citations such as `\cite{example2024}` become clickable in the output PDF.
 
 ### Programmatic API
 
