@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -70,6 +71,31 @@ def _cleanup_auxiliary_files(tex_path: Path, outdir: Path) -> None:
             aux_path.unlink()
         except FileNotFoundError:
             continue
+
+
+def _iter_document_outputs(outdir: Path, stem: str) -> list[Path]:
+    """Return generated files for a document from a build directory."""
+    return sorted(path for path in outdir.glob(f"{stem}*") if path.is_file())
+
+
+def _sync_document_outputs(
+    build_outdir: Path,
+    outdir: Path,
+    stem: str,
+    *,
+    include_pdf: bool,
+) -> None:
+    """Move generated files from a temporary build directory into the final output directory."""
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    for output_path in _iter_document_outputs(build_outdir, stem):
+        if not include_pdf and output_path.suffix == ".pdf":
+            continue
+
+        destination = outdir / output_path.name
+        if destination.exists():
+            destination.unlink()
+        shutil.move(str(output_path), str(destination))
 
 
 def _get_default_engine(tex_path: Optional[Path] = None) -> str:
@@ -247,59 +273,86 @@ def compile_tex(
     result_diagnostics: list[Diagnostic] = []
     used_engine_name = engine.name
     analysis_log = ""
+    outdir.mkdir(parents=True, exist_ok=True)
+    final_pdf_path = outdir / f"{tex_path.stem}.pdf"
     try:
-        if engine.name == "tectonic":
-            return_code, log, pdf_path = _run_tectonic(tex_path, outdir, timeout)
-            analysis_log = log
+        with tempfile.TemporaryDirectory(
+            dir=outdir,
+            prefix=f".tex2pdf-{tex_path.stem}-",
+        ) as build_tmpdir:
+            build_outdir = Path(build_tmpdir)
 
-            if return_code != 0 and _has_biber_version_mismatch(log):
-                try:
-                    retry_return_code, retry_log, retry_pdf_path = _run_latexmk(
-                        tex_path,
-                        outdir,
-                        timeout,
-                    )
-                except FileNotFoundError:
-                    pass
-                else:
-                    used_engine_name = "latexmk"
-                    result_diagnostics.append(
-                        Diagnostic(
-                            level="info",
-                            code="engine-fallback",
-                            message=(
-                                "Tectonic hit a biblatex/biber version mismatch; "
-                                "retried with latexmk."
-                            ),
-                            raw="tectonic -> latexmk",
+            if engine.name == "tectonic":
+                return_code, log, pdf_path = _run_tectonic(tex_path, build_outdir, timeout)
+                analysis_log = log
+
+                if return_code != 0 and _has_biber_version_mismatch(log):
+                    try:
+                        retry_return_code, retry_log, retry_pdf_path = _run_latexmk(
+                            tex_path,
+                            build_outdir,
+                            timeout,
                         )
-                    )
-                    log = (
-                        "note: tectonic failed with a biblatex/biber version mismatch; "
-                        "retrying with latexmk.\n\n"
-                        f"{log}\n\n"
-                        "note: latexmk retry log follows.\n\n"
-                        f"{retry_log}"
-                    )
-                    analysis_log = retry_log if retry_return_code == 0 else log
-                    return_code = retry_return_code
-                    pdf_path = retry_pdf_path
-        elif engine.name == "latexmk":
-            return_code, log, pdf_path = _run_latexmk(tex_path, outdir, timeout)
-            analysis_log = log
-        else:
-            return CompileResult(
-                success=False,
-                engine=engine.name,
-                diagnostics=[
-                    Diagnostic(
-                        level="error",
-                        code="unsupported-engine",
-                        message=f"Unsupported engine: {engine.name}",
-                        raw=f"Engine {engine.name} is not supported",
-                    )
-                ],
-            )
+                    except FileNotFoundError:
+                        pass
+                    else:
+                        used_engine_name = "latexmk"
+                        result_diagnostics.append(
+                            Diagnostic(
+                                level="info",
+                                code="engine-fallback",
+                                message=(
+                                    "Tectonic hit a biblatex/biber version mismatch; "
+                                    "retried with latexmk."
+                                ),
+                                raw="tectonic -> latexmk",
+                            )
+                        )
+                        log = (
+                            "note: tectonic failed with a biblatex/biber version mismatch; "
+                            "retrying with latexmk.\n\n"
+                            f"{log}\n\n"
+                            "note: latexmk retry log follows.\n\n"
+                            f"{retry_log}"
+                        )
+                        analysis_log = retry_log if retry_return_code == 0 else log
+                        return_code = retry_return_code
+                        pdf_path = retry_pdf_path
+            elif engine.name == "latexmk":
+                return_code, log, pdf_path = _run_latexmk(tex_path, build_outdir, timeout)
+                analysis_log = log
+            else:
+                return CompileResult(
+                    success=False,
+                    engine=engine.name,
+                    diagnostics=[
+                        Diagnostic(
+                            level="error",
+                            code="unsupported-engine",
+                            message=f"Unsupported engine: {engine.name}",
+                            raw=f"Engine {engine.name} is not supported",
+                        )
+                    ],
+                )
+
+            success = return_code == 0 and pdf_path.exists()
+
+            if success:
+                _sync_document_outputs(
+                    build_outdir,
+                    outdir,
+                    tex_path.stem,
+                    include_pdf=True,
+                )
+                if not keep_aux:
+                    _cleanup_auxiliary_files(tex_path, outdir)
+            else:
+                _sync_document_outputs(
+                    build_outdir,
+                    outdir,
+                    tex_path.stem,
+                    include_pdf=False,
+                )
     except FileNotFoundError as e:
         return CompileResult(
             success=False,
@@ -349,12 +402,6 @@ def compile_tex(
     # Analyze log for diagnostics
     result_diagnostics.extend(analyse_log(analysis_log or log))
 
-    # Determine success: return code 0 and PDF exists
-    success = return_code == 0 and pdf_path.exists()
-
-    if success and not keep_aux:
-        _cleanup_auxiliary_files(tex_path, outdir)
-
     # If compilation failed but we have no error diagnostics, add a generic one.
     if not success and not any(diag.level == "error" for diag in result_diagnostics):
         result_diagnostics.append(
@@ -368,7 +415,7 @@ def compile_tex(
 
     return CompileResult(
         success=success,
-        pdf_path=pdf_path if pdf_path.exists() else None,
+        pdf_path=final_pdf_path if success and final_pdf_path.exists() else None,
         log=log,
         diagnostics=result_diagnostics,
         engine=used_engine_name,

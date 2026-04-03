@@ -125,6 +125,8 @@ tex2pdf latex_literature_review.tex
 # output/latex_literature_review.pdf
 ```
 
+The repository intentionally tracks `output/latex_literature_review.pdf` as a demo artifact so the sample output is visible on GitHub without requiring a local compile first.
+
 ##### JSON output
 
 ```bash
@@ -135,7 +137,7 @@ tex2pdf document.tex --json
 The JSON output includes:
 
 - `success`: Boolean indicating compilation success
-- `pdf_path`: Path to generated PDF (if successful)
+- `pdf_path`: Path to the generated PDF on success, otherwise `null`
 - `log`: Full compilation log
 - `diagnostics`: Array of diagnostic objects with error codes, messages, and fix recommendations
 - `engine`: Engine used for compilation
@@ -255,8 +257,10 @@ tex2pdf/
 ├── requirements.txt        # Runtime dependencies
 ├── requirements-dev.txt    # Development dependencies
 ├── input/
-│   └── latex_literature_review.tex # Example input document
-├── output/                 # Default output directory
+│   ├── latex_literature_review.tex            # Example input document
+│   ├── latex_literature_review_references.bib # Example bibliography
+│   └── images/LaTeX_project_logo_bird.png     # Example figure asset
+├── output/                 # Default output directory and tracked demo PDF
 ├── src/
 │   └── tex2pdf/
 │       ├── __init__.py         # Package exports
@@ -266,7 +270,8 @@ tex2pdf/
 │       └── cli.py              # Typer-based CLI interface
 └── tests/
     ├── test_analysis.py    # Tests for log analysis
-    └── test_core.py        # Tests for core compilation (with mocking)
+    ├── test_cli_integration.py # Real CLI integration tests
+    └── test_core.py        # Tests for core compilation logic
 ```
 
 ## Development
@@ -283,6 +288,31 @@ pytest --cov=tex2pdf
 # Run with verbose output
 pytest -v
 ```
+
+The CLI integration tests use the real LaTeX toolchain and are skipped automatically when required system tools such as `latexmk`, `pdflatex`, or `biber` are unavailable.
+
+### Packaging smoke test
+
+```bash
+pyproject-build --no-isolation
+
+python -m venv .tmp-release-venv
+source .tmp-release-venv/bin/activate
+python -m pip install dist/tex2pdf-1.0.0-py3-none-any.whl
+tex2pdf latex_literature_review.tex --json
+deactivate
+```
+
+### Release checklist
+
+Use this checklist before tagging a release:
+
+1. Ensure the worktree is clean aside from the intended version bump and demo PDF update.
+2. Run `pytest` and confirm the CLI integration tests are either passing or explicitly skipped for missing system tools.
+3. Rebuild the sample review with `tex2pdf latex_literature_review.tex --json` and confirm `output/latex_literature_review.pdf` is current.
+4. Run the packaging smoke test in a clean virtual environment.
+5. Confirm `pyproject.toml` version/classifiers match the intended release.
+6. Review the README examples and JSON contract, then tag the release.
 
 ### Extending the diagnostic system
 
