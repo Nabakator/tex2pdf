@@ -23,9 +23,12 @@ SUCCESS_AUX_SUFFIXES = (
     ".blg",
     ".fdb_latexmk",
     ".fls",
+    ".lof",
     ".log",
+    ".lot",
     ".out",
     ".run.xml",
+    ".toc",
 )
 
 
@@ -121,4 +124,3 @@ def test_cli_failure_returns_null_pdf_path_with_stale_output_present(tmp_path: P
     assert payload["success"] is False
     assert payload["pdf_path"] is None
     assert stale_pdf.exists()
-

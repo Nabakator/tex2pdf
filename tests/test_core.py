@@ -17,9 +17,12 @@ _AUX_SUFFIXES = (
     ".blg",
     ".fdb_latexmk",
     ".fls",
+    ".lof",
     ".log",
+    ".lot",
     ".out",
     ".run.xml",
+    ".toc",
 )
 
 
