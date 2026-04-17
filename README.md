@@ -14,26 +14,95 @@ A minimalist Python CLI tool for compiling LaTeX files to PDF with structured er
 - **Aux cleanup by default**: Removes common `.aux`/`.log`/`latexmk` byproducts after successful builds
 - **Clean API**: Simple programmatic interface for integration into other tools
 
+## Quick start
+
+`tex2pdf` is a Python wrapper around a real LaTeX engine. `pip install .` installs the Python CLI, but it does not install `tectonic`, `latexmk`, or TeX Live. Install or verify the engine first, otherwise the first compile will fail with `engine-not-found`.
+
+### 1. Install a LaTeX engine
+
+Choose one of the supported engines.
+
+For most Linux users, install `latexmk` with TeX Live:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y latexmk texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended
+```
+
+For a smaller self-contained engine, install Tectonic:
+
+```bash
+cargo install tectonic
+```
+
+On macOS, install a TeX distribution that includes `latexmk`:
+
+```bash
+brew install --cask mactex
+```
+
+Verify that at least one supported engine is available:
+
+```bash
+command -v tectonic || command -v latexmk
+```
+
+If that command prints nothing, install one of the engines above before continuing.
+
+### 2. Install tex2pdf
+
+```bash
+git clone <repository-url>
+cd tex2pdf
+
+python3 -m venv .venv
+source .venv/bin/activate  # macOS/Linux
+# .venv\Scripts\activate   # Windows
+
+python3 -m pip install --upgrade pip
+python3 -m pip install .
+```
+
+### 3. Run a smoke test
+
+```bash
+tex2pdf latex_literature_review.tex --json
+```
+
+The example input is resolved from the `input/` directory, and the generated PDF is written to:
+
+```text
+output/latex_literature_review.pdf
+```
+
+If both `tectonic` and `latexmk` are installed, `tex2pdf` normally chooses `tectonic` unless the document needs the `latexmk` route. For traditional BibTeX or `natbib` documents, `latexmk` is usually the safer explicit choice:
+
+```bash
+tex2pdf latex_literature_review.tex --engine=latexmk
+```
+
 ## Requirements
 
 ### System dependencies
 
-This tool requires one of the following LaTeX engines to be installed and available in your PATH:
+This tool requires one of the following LaTeX engines to be installed and available in your `PATH` before compiling documents:
 
 - **Tectonic** (preferred): Modern, self-contained LaTeX engine
   - Installation: `cargo install tectonic` or download from [tectonic-typesetting.github.io](https://tectonic-typesetting.github.io/)
   
-- **LaTeXmk** (alternative): Traditional LaTeX build tool (requires TeX Live or MiKTeX)
+- **LaTeXmk** (alternative): Traditional LaTeX build tool that requires TeX Live or MiKTeX
   - Installation: Usually included with TeX Live distributions
   - macOS: `brew install --cask mactex` or `brew install basictex`
-  - Linux: `sudo apt-get install texlive-latex-base latexmk`
+  - Linux: `sudo apt-get install latexmk texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended`
 
 ### Python requirements
 
 - Python 3.10 or higher
 - See `requirements.txt` for Python dependencies
 
-## Installation
+## Installation details
+
+The quick start above is the recommended first-run path. This section gives the same installation steps in a slower reference format.
 
 1. Clone this repository:
 
@@ -42,7 +111,7 @@ This tool requires one of the following LaTeX engines to be installed and availa
    cd tex2pdf
    ```
 
-### For users (just run the CLI)
+### For users
 
 ```bash
 python3 -m venv .venv
@@ -52,6 +121,12 @@ source .venv/bin/activate  # macOS/Linux
 
 python3 -m pip install --upgrade pip
 python3 -m pip install .
+```
+
+Before running the CLI, confirm a LaTeX engine is available:
+
+```bash
+command -v tectonic || command -v latexmk
 ```
 
 ### For development
