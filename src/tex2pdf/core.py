@@ -35,6 +35,7 @@ _AUXILIARY_SUFFIXES = (
     ".lot",
     ".out",
     ".run.xml",
+    ".synctex.gz",
     ".toc",
 )
 

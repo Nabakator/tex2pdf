@@ -22,6 +22,7 @@ _AUX_SUFFIXES = (
     ".lot",
     ".out",
     ".run.xml",
+    ".synctex.gz",
     ".toc",
 )
 

@@ -266,7 +266,7 @@ else:
         print(f"{diagnostic.level}: {diagnostic.message}")
 ```
 
-On successful builds, `tex2pdf` removes common auxiliary files such as `.aux`, `.bbl`, `.bcf`, `.blg`, `.fdb_latexmk`, `.fls`, `.lof`, `.log`, `.lot`, `.out`, `.run.xml`, and `.toc`. Failed builds keep them for debugging. Use `--keep-aux` or `keep_aux=True` to preserve them.
+On successful builds, `tex2pdf` removes common auxiliary files such as `.aux`, `.bbl`, `.bcf`, `.blg`, `.fdb_latexmk`, `.fls`, `.lof`, `.log`, `.lot`, `.out`, `.run.xml`, `.synctex.gz`, and `.toc`. Failed builds keep them for debugging. Use `--keep-aux` or `keep_aux=True` to preserve them.
 
 ## Error handling and diagnostics
 
